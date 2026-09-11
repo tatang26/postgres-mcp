@@ -184,21 +184,6 @@ func TestParse_MultipleConnectionsPreserveOrderAndFields(t *testing.T) {
 	}
 }
 
-func TestAccessModeFromString(t *testing.T) {
-	if AccessModeFromString("unrestricted") != Unrestricted {
-		t.Error("expected 'unrestricted' to map to Unrestricted")
-	}
-	if AccessModeFromString("restricted") != Restricted {
-		t.Error("expected 'restricted' to map to Restricted")
-	}
-	if AccessModeFromString("") != Restricted {
-		t.Error("expected empty string to default to Restricted")
-	}
-	if AccessModeFromString("garbage") != Restricted {
-		t.Error("expected unrecognized value to default to Restricted")
-	}
-}
-
 func TestAccessMode_String(t *testing.T) {
 	if Restricted.String() != "restricted" {
 		t.Errorf("expected 'restricted', got %q", Restricted.String())

@@ -10,25 +10,18 @@
 package config
 
 import (
+	"bytes"
 	"encoding/json/v2"
 	"fmt"
-	"net/url"
-	"strings"
+	"slices"
 )
 
 // Connection is a single parsed, named Postgres connection entry from
 // POSTGRES_CONNECTIONS.
 type Connection struct {
-	Name       string
-	URI        string
-	AccessMode AccessMode
-}
-
-// rawConnection is the wire shape of a single POSTGRES_CONNECTIONS entry.
-type rawConnection struct {
-	Name       string `json:"name"`
-	URI        string `json:"uri"`
-	AccessMode string `json:"access_mode"`
+	Name       string     `json:"name"`
+	URI        string     `json:"uri"`
+	AccessMode AccessMode `json:"access_mode"`
 }
 
 // Parse parses values (the raw string of each -connection flag occurrence,
@@ -43,79 +36,38 @@ func Parse(values []string) ([]Connection, error) {
 		return nil, fmt.Errorf("at least one -connection flag is required")
 	}
 
-	seen := make(map[string]int, len(values))
 	conns := make([]Connection, 0, len(values))
+	trimStringOption := json.WithUnmarshalers(json.UnmarshalFunc(func(b []byte, dst *string) error {
+		*dst = string(bytes.TrimSpace(b))
+		return nil
+	}))
 
 	for i, v := range values {
-		flagNum := i + 1 // 1-based, matching how a user counts flags on the command line
+		var con Connection
 
-		if strings.TrimSpace(v) == "" {
-			return nil, fmt.Errorf("-connection #%d is empty", flagNum)
+		err := json.Unmarshal(
+			[]byte(v), &con,
+			trimStringOption,
+			json.RejectUnknownMembers(true),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("-connection #%d is not a valid json object: %w", i+1, err)
 		}
 
-		var e rawConnection
-		if err := json.Unmarshal([]byte(v), &e, json.RejectUnknownMembers(true)); err != nil {
-			return nil, fmt.Errorf("-connection #%d is not a valid JSON object: %w", flagNum, err)
+		if con.Name == "" {
+			return nil, fmt.Errorf(`-connection #%d doesn't have a valid name.`, i+1)
 		}
 
-		if strings.TrimSpace(e.URI) == "" {
-			return nil, fmt.Errorf("-connection #%d is missing a \"uri\"", flagNum)
+		if con.URI == "" {
+			return nil, fmt.Errorf(`-connection #%d doesn't have a valid uri.`, i+1)
 		}
 
-		mode := AccessModeFromString(e.AccessMode)
-
-		name := strings.TrimSpace(e.Name)
-		if name == "" {
-			derived, err := deriveName(e.URI)
-			if err != nil {
-				return nil, fmt.Errorf("-connection #%d: could not derive a name from its uri (%w); provide an explicit \"name\"", flagNum, err)
-			}
-			name = derived
+		if slices.ContainsFunc(conns, func(c Connection) bool { return c.Name == con.Name }) {
+			continue
 		}
-		name = dedupeName(name, seen)
 
-		conns = append(conns, Connection{Name: name, URI: e.URI, AccessMode: mode})
+		conns = append(conns, con)
 	}
 
 	return conns, nil
-}
-
-// deriveName builds a human-readable, credential-free identifier from a
-// Postgres connection URI, of the form "host/dbname" (falling back to just
-// "host" or just "dbname" if one is absent). It only supports URI-style
-// DSNs (postgres://... or postgresql://...); keyword/value DSNs
-// (host=... dbname=...) must supply an explicit "name".
-func deriveName(rawURI string) (string, error) {
-	if !strings.Contains(rawURI, "://") {
-		return "", fmt.Errorf("automatic name derivation only supports postgres:// or postgresql:// URIs")
-	}
-
-	u, err := url.Parse(rawURI)
-	if err != nil {
-		return "", fmt.Errorf("invalid uri: %w", err)
-	}
-
-	host := u.Hostname()
-	db := strings.TrimPrefix(u.Path, "/")
-
-	switch {
-	case host != "" && db != "":
-		return host + "/" + db, nil
-	case db != "":
-		return db, nil
-	case host != "":
-		return host, nil
-	default:
-		return "", fmt.Errorf("uri has neither a host nor a database name")
-	}
-}
-
-// dedupeName returns name, or name with a numeric suffix appended if it has
-// already been seen, tracking occurrence counts in seen.
-func dedupeName(name string, seen map[string]int) string {
-	seen[name]++
-	if seen[name] == 1 {
-		return name
-	}
-	return fmt.Sprintf("%s-%d", name, seen[name])
 }
