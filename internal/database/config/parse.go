@@ -10,10 +10,10 @@
 package config
 
 import (
-	"bytes"
 	"encoding/json/v2"
 	"fmt"
 	"slices"
+	"strings"
 )
 
 // Connection is a single parsed, named Postgres connection entry from
@@ -37,22 +37,16 @@ func Parse(values []string) ([]Connection, error) {
 	}
 
 	conns := make([]Connection, 0, len(values))
-	trimStringOption := json.WithUnmarshalers(json.UnmarshalFunc(func(b []byte, dst *string) error {
-		*dst = string(bytes.TrimSpace(b))
-		return nil
-	}))
 
 	for i, v := range values {
 		var con Connection
 
-		err := json.Unmarshal(
-			[]byte(v), &con,
-			trimStringOption,
-			json.RejectUnknownMembers(true),
-		)
-		if err != nil {
+		if err := json.Unmarshal([]byte(v), &con, json.RejectUnknownMembers(true)); err != nil {
 			return nil, fmt.Errorf("-connection #%d is not a valid json object: %w", i+1, err)
 		}
+
+		con.Name = strings.TrimSpace(con.Name)
+		con.URI = strings.TrimSpace(con.URI)
 
 		if con.Name == "" {
 			return nil, fmt.Errorf(`-connection #%d doesn't have a valid name.`, i+1)
