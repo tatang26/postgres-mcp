@@ -27,9 +27,13 @@ const maxLineSize = 64 * 1024 * 1024 // 64 MiB
 // Handler implements a single tool's behavior. args is the raw "arguments"
 // object from the tools/call request (nil/empty if the tool takes no
 // arguments). Returning a non-nil error is treated as a protocol-level
-// failure (e.g. malformed arguments); business-logic failures (e.g. a SQL
-// error) should instead be returned via ErrorResult in a non-nil
-// *CallToolResult with a nil error.
+// failure and should be reserved for genuine internal failures the caller
+// cannot act on. Anything the caller (the LLM) could see and react to -
+// including invalid/malformed arguments, not just downstream business-logic
+// failures like a SQL error - should instead be returned via ErrorResult in
+// a non-nil *CallToolResult with a nil error, per the MCP spec's guidance
+// that input validation errors are tool execution errors, not protocol
+// errors.
 type Handler func(ctx context.Context, args jsontext.Value) (*CallToolResult, error)
 
 // Tool is a single tool exposed by the server, as advertised in tools/list

@@ -10,7 +10,7 @@ Each database is registered as a **named connection** with its own **access mode
 - `unrestricted` — any statement, including writes and DDL.
 
 The server speaks the MCP stdio transport (newline-delimited JSON-RPC 2.0), protocol version
-`2024-11-05`. Dependencies: the Go standard library plus [`lib/pq`](https://github.com/lib/pq).
+`2025-06-18`. Dependencies: the Go standard library plus [`lib/pq`](https://github.com/lib/pq).
 
 ## Tools
 

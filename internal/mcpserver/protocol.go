@@ -2,11 +2,12 @@ package mcpserver
 
 import (
 	"encoding/json/jsontext"
+	"fmt"
 )
 
 // protocolVersion is the MCP protocol version this server implements and
 // advertises during initialize.
-const protocolVersion = "2024-11-05"
+const protocolVersion = "2025-06-18"
 
 // JSON-RPC 2.0 standard error codes (see https://www.jsonrpc.org/specification).
 const (
@@ -113,7 +114,15 @@ func TextResult(text string) *CallToolResult {
 // describing err. Use this for business-logic failures that the caller
 // (the LLM) should be able to see and react to, as opposed to returning a
 // Go error from a Handler, which surfaces as a JSON-RPC protocol error.
-func ErrorResult(err error) *CallToolResult {
+//
+// An optional msg wraps err as fmt.Errorf("%s: %w", msg, err) before it is
+// rendered, so ErrorResult(err, "invalid arguments") is shorthand for
+// ErrorResult(fmt.Errorf("invalid arguments: %w", err)). Only the first msg
+// is used; it exists purely to make the wrapping message optional.
+func ErrorResult(err error, msg ...string) *CallToolResult {
+	if len(msg) > 0 {
+		err = fmt.Errorf("%s: %w", msg[0], err)
+	}
 	return &CallToolResult{
 		Content: []ContentBlock{{Type: "text", Text: err.Error()}},
 		IsError: true,

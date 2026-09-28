@@ -57,6 +57,12 @@ func TestInitialize(t *testing.T) {
 	if serverInfo["name"] != "postgres-mcp" || serverInfo["version"] != "0.1.0" {
 		t.Errorf("unexpected serverInfo: %v", serverInfo)
 	}
+	// The server always advertises its own supported version, regardless of
+	// what the client requested (2024-11-05 above); per spec, the client is
+	// responsible for disconnecting if it can't support the returned version.
+	if result["protocolVersion"] != protocolVersion {
+		t.Errorf("expected protocolVersion %q, got %v", protocolVersion, result["protocolVersion"])
+	}
 }
 
 func TestNotificationProducesNoResponse(t *testing.T) {
@@ -230,12 +236,16 @@ func TestToolsCallUnknownTool(t *testing.T) {
 	}
 }
 
+// TestToolsCallHandlerProtocolError covers a Handler returning a genuine
+// internal/protocol-level failure (a Go error), as opposed to argument
+// validation, which tools should instead report via ErrorResult (see
+// TestToolsCallBusinessError).
 func TestToolsCallHandlerProtocolError(t *testing.T) {
 	srv := NewServer("postgres-mcp", "0.1.0")
 	srv.AddTool(&Tool{
 		Name: "broken",
 		Handler: func(ctx context.Context, args json.RawMessage) (*CallToolResult, error) {
-			return nil, errors.New("invalid arguments")
+			return nil, errors.New("internal failure")
 		},
 	})
 
@@ -368,5 +378,13 @@ func TestTextResultAndErrorResultHelpers(t *testing.T) {
 	}
 	if len(er.Content) != 1 || er.Content[0].Text != "bad" {
 		t.Errorf("unexpected ErrorResult content: %+v", er.Content)
+	}
+
+	wrapped := ErrorResult(errors.New("bad"), "invalid arguments")
+	if !wrapped.IsError {
+		t.Error("ErrorResult should set IsError")
+	}
+	if len(wrapped.Content) != 1 || wrapped.Content[0].Text != "invalid arguments: bad" {
+		t.Errorf("unexpected wrapped ErrorResult content: %+v", wrapped.Content)
 	}
 }

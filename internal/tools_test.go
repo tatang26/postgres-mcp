@@ -176,8 +176,15 @@ func TestRegisterTools_ExecuteSQL_InvalidArguments(t *testing.T) {
 	if err := json.Unmarshal(bytes.TrimSpace(out.Bytes()), &resp); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
-	if resp["error"] == nil {
-		t.Fatalf("expected JSON-RPC error for malformed arguments, got %v", resp)
+	// Invalid tool arguments are a tool execution error (isError:true in a
+	// normal result), not a JSON-RPC protocol error, so the model can see
+	// and react to the message.
+	if resp["error"] != nil {
+		t.Fatalf("expected no JSON-RPC error for malformed arguments, got %v", resp)
+	}
+	result := resp["result"].(map[string]any)
+	if result["isError"] != true {
+		t.Fatalf("expected isError true for malformed arguments, got %v", result)
 	}
 }
 
@@ -234,8 +241,12 @@ func TestRegisterTools_ExplainQuery_InvalidArguments(t *testing.T) {
 	if err := json.Unmarshal(bytes.TrimSpace(out.Bytes()), &resp); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
-	if resp["error"] == nil {
-		t.Fatalf("expected JSON-RPC error for malformed arguments, got %v", resp)
+	if resp["error"] != nil {
+		t.Fatalf("expected no JSON-RPC error for malformed arguments, got %v", resp)
+	}
+	result := resp["result"].(map[string]any)
+	if result["isError"] != true {
+		t.Fatalf("expected isError true for malformed arguments, got %v", result)
 	}
 }
 
@@ -319,8 +330,44 @@ func TestRegisterTools_ListObjects_InvalidArguments(t *testing.T) {
 	if err := json.Unmarshal(bytes.TrimSpace(out.Bytes()), &resp); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
-	if resp["error"] == nil {
-		t.Fatalf("expected JSON-RPC error for malformed arguments, got %v", resp)
+	if resp["error"] != nil {
+		t.Fatalf("expected no JSON-RPC error for malformed arguments, got %v", resp)
+	}
+	result := resp["result"].(map[string]any)
+	if result["isError"] != true {
+		t.Fatalf("expected isError true for malformed arguments, got %v", result)
+	}
+}
+
+func TestRegisterTools_ListSchemas_InvalidArguments(t *testing.T) {
+	dbSrv := newTestServer(t, config.Restricted)
+	srv := mcpserver.NewServer("postgres-mcp", serverVersion)
+	registerTools(srv, dbSrv)
+
+	reqJSON, _ := json.Marshal(map[string]any{
+		"jsonrpc": "2.0",
+		"id":      1,
+		"method":  "tools/call",
+		"params": map[string]any{
+			"name":      "list_schemas",
+			"arguments": json.RawMessage(`"not-an-object"`),
+		},
+	})
+
+	var out bytes.Buffer
+	if err := srv.Run(context.Background(), strings.NewReader(string(reqJSON)+"\n"), &out); err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	var resp map[string]any
+	if err := json.Unmarshal(bytes.TrimSpace(out.Bytes()), &resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if resp["error"] != nil {
+		t.Fatalf("expected no JSON-RPC error for malformed arguments, got %v", resp)
+	}
+	result := resp["result"].(map[string]any)
+	if result["isError"] != true {
+		t.Fatalf("expected isError true for malformed arguments, got %v", result)
 	}
 }
 

@@ -55,7 +55,7 @@ func registerTools(srv *mcpserver.Server, dbSrv database.Server) {
 				SQL        string `json:"sql"`
 			}
 			if err := json.Unmarshal(args, &params); err != nil {
-				return nil, fmt.Errorf("invalid arguments: %w", err)
+				return mcpserver.ErrorResult(err, "invalid arguments"), nil
 			}
 			conn, err := dbSrv.Get(ctx, params.Connection)
 			if err != nil {
@@ -97,7 +97,7 @@ func registerTools(srv *mcpserver.Server, dbSrv database.Server) {
 				Analyze    bool   `json:"analyze"`
 			}
 			if err := json.Unmarshal(args, &params); err != nil {
-				return nil, fmt.Errorf("invalid arguments: %w", err)
+				return mcpserver.ErrorResult(err, "invalid arguments"), nil
 			}
 			conn, err := dbSrv.Get(ctx, params.Connection)
 			if err != nil {
@@ -129,7 +129,7 @@ func registerTools(srv *mcpserver.Server, dbSrv database.Server) {
 				Connection string `json:"connection"`
 			}
 			if err := json.Unmarshal(args, &params); err != nil {
-				return nil, fmt.Errorf("invalid arguments: %w", err)
+				return mcpserver.ErrorResult(err, "invalid arguments"), nil
 			}
 			conn, err := dbSrv.Get(ctx, params.Connection)
 			if err != nil {
@@ -172,7 +172,7 @@ func registerTools(srv *mcpserver.Server, dbSrv database.Server) {
 				ObjectType string `json:"object_type"`
 			}
 			if err := json.Unmarshal(args, &params); err != nil {
-				return nil, fmt.Errorf("invalid arguments: %w", err)
+				return mcpserver.ErrorResult(err, "invalid arguments"), nil
 			}
 			conn, err := dbSrv.Get(ctx, params.Connection)
 			if err != nil {
